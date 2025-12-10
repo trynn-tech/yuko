@@ -105,26 +105,21 @@ fi
 ### 4) Ensure git is available (via system or nix)
 ensure_git() {
     if command -v git >/dev/null 2>&1; then
-        log "git is installed (system)."
+        log "git already present."
         return 0
     fi
 
-    # Prefer using nix profile if nix is present
-    if command -v nix >/dev/null 2>&1; then
-        log "Installing git with 'nix profile'..."
-        if nix profile install nixpkgs#git >/dev/null 2>&1; then
-            log "git installed via nix profile."
-            return 0
-        fi
-        # fallback to nix-env
-        if nix-env -iA nixpkgs.git >/dev/null 2>&1; then
-            log "git installed via nix-env."
-            return 0
-        fi
-    fi
+    log "git is not installed. Falling back to ephemeral git via nix-shell..."
 
-    warn "Could not install git automatically. Please install git manually and re-run."
-    return 1
+    # Use nix shell (pure ephemeral environment) to supply git
+    if GITBIN=$(nix shell nixpkgs#git -c which git 2>/dev/null); then
+        export PATH="$(dirname "$GITBIN"):$PATH"
+        log "Ephemeral git activated at: $GITBIN"
+        return 0
+    else
+        log "FATAL: git is not installed and failed to launch in nix shell."
+        return 1
+    fi
 }
 
 ensure_git || exit 1
